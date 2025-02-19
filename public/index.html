@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tic Tac Toe</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+      body {
+        text-align: center;
+        font-family: Arial, sans-serif;
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(3, 100px);
+        gap: 5px;
+        margin: 20px auto;
+        width: 320px;
+      }
+      .cell {
+        width: 100px;
+        height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2em;
+        border: 1px solid #333;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Tic Tac Toe</h1>
+    <p id="status">Waiting for players...</p>
+    <div class="board">
+      <div class="cell" data-index="0"></div>
+      <div class="cell" data-index="1"></div>
+      <div class="cell" data-index="2"></div>
+      <div class="cell" data-index="3"></div>
+      <div class="cell" data-index="4"></div>
+      <div class="cell" data-index="5"></div>
+      <div class="cell" data-index="6"></div>
+      <div class="cell" data-index="7"></div>
+      <div class="cell" data-index="8"></div>
+    </div>
+    <script>
+      const socket = io();
+      let mySymbol = null;
+
+      socket.on("playerSymbol", (symbol) => {
+        mySymbol = symbol;
+        document.getElementById("status").innerText = `You are ${symbol}`;
+      });
+
+      socket.on("updateBoard", (board) => {
+        document.querySelectorAll(".cell").forEach((cell, index) => {
+          cell.innerText = board[index] || "";
+        });
+      });
+
+      socket.on("gameOver", (message) => {
+        document.getElementById("status").innerText = message;
+      });
+
+      document.querySelectorAll(".cell").forEach((cell) => {
+        cell.addEventListener("click", () => {
+          if (mySymbol) {
+            socket.emit("makeMove", cell.dataset.index);
+          }
+        });
+      });
+
+      socket.on("message", (msg) => {
+        document.getElementById("status").innerText = msg;
+      });
+    </script>
+  </body>
+</html>
