@@ -1,95 +1,79 @@
-const express = require("express");
-const http = require("http");
-const socketIo = require("socket.io");
-const os = require("os");
+// Server setup with Express and Socket.io
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const Game = require('./game');
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
+app.use(express.static('public'));
+const PORT = process.env.PORT || 5001;
 
-app.use(express.static("public")); // Serve frontend files from "public" folder
+const game = new Game();
 
-const PORT = 5001;
-
-let players = {}; // Store player sockets
-let board = Array(9).fill(null);
-let currentTurn = "X";
-
-io.on("connection", (socket) => {
-  console.log("A player connected:", socket.id);
-
-  if (Object.keys(players).length < 2) {
-    let symbol = Object.keys(players).length === 0 ? "X" : "O";
-    players[socket.id] = symbol;
-    socket.emit("playerSymbol", symbol);
-    io.emit("updateBoard", board);
-  } else {
-    socket.emit("message", "Game full! Wait for players to finish.");
-    socket.disconnect();
+io.on('connection', socket => {
+  console.log('Connect', socket.id);
+  if (!game.addPlayer(socket.id)) {
+    socket.emit('message', 'Game full');
+    return socket.disconnect();
   }
+  // send initial state
+  socket.emit('hand', game.hands[socket.id]);
+  io.emit('stacks', game.getStacks());
+  io.emit('royals', game.royals);
+  io.emit('deckCount', game.deck.length);
+  io.emit('currentTurn', game.getCurrentTurn());
 
-  socket.on("makeMove", (index) => {
-    if (players[socket.id] !== currentTurn || board[index] !== null) return;
+  socket.on('draw', () => {
+    const ok = game.draw(socket.id);
+    if (!ok) { socket.emit('message', 'Not your turn'); return; }
+    socket.emit('hand', game.hands[socket.id]);
+    io.emit('deckCount', game.deck.length);
+    io.emit('currentTurn', game.getCurrentTurn());
+  });
 
-    board[index] = currentTurn;
-    currentTurn = currentTurn === "X" ? "O" : "X";
-    io.emit("updateBoard", board);
+  socket.on('play', ({ suit, rank }, stackIdx) => {
+    const ok = game.play(socket.id, { suit, rank }, stackIdx);
+    if (!ok) { socket.emit('message', 'Invalid move'); return; }
+    io.emit('stacks', game.getStacks());
+    socket.emit('hand', game.hands[socket.id]);
+    io.emit('currentTurn', game.getCurrentTurn());
+  });
 
-    // Check for a winner
-    let winner = checkWinner();
-    if (winner) {
-      io.emit("gameOver", `${winner} wins!`);
-      resetGame();
+  socket.on('move', ({ count, from, to }) => {
+    if (count > 0 && game.stacks[from].length >= count) {
+      game.move(count, from, to);
+      io.emit('stacks', game.getStacks());
+      io.emit('currentTurn', game.getCurrentTurn());
+    } else {
+      socket.emit('message', 'Invalid move');
     }
   });
 
-  socket.on("disconnect", () => {
-    console.log("A player disconnected:", socket.id);
-    delete players[socket.id];
-    resetGame();
-    io.emit("message", "A player left. Game reset.");
+  socket.on('playRoyal', ({ suit, rank }, royalIdx) => {
+    const ok = game.playRoyal(socket.id, { suit, rank }, royalIdx);
+    if (!ok) { socket.emit('message', 'Invalid move'); return; }
+    io.emit('royals', game.royals);
+    socket.emit('hand', game.hands[socket.id]);
+    io.emit('currentTurn', game.getCurrentTurn());
+  });
+
+  socket.on('endTurn', () => {
+    if (socket.id !== game.getCurrentTurn()) {
+      socket.emit('message', 'Not your turn');
+      return;
+    }
+    game.switchTurn();
+    io.emit('currentTurn', game.getCurrentTurn());
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Disconnect', socket.id);
+    delete game.hands[socket.id];
+    game.reset();
+    io.emit('message', 'Reset');
   });
 });
 
-function checkWinner() {
-  const winPatterns = [
-    [0, 1, 2],
-    [3, 4, 5],
-    [6, 7, 8],
-    [0, 3, 6],
-    [1, 4, 7],
-    [2, 5, 8],
-    [0, 4, 8],
-    [2, 4, 6],
-  ];
-  for (let pattern of winPatterns) {
-    const [a, b, c] = pattern;
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return board[a];
-    }
-  }
-  return board.includes(null) ? null : "Draw";
-}
-
-function resetGame() {
-  board = Array(9).fill(null);
-  currentTurn = "X";
-}
-
-function getLocalIP() {
-  const interfaces = os.networkInterfaces();
-
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      // Skip over internal (i.e. 127.0.0.1) and non-IPv4 addresses
-      if (iface.family === "IPv4" && !iface.internal) {
-        return iface.address;
-      }
-    }
-  }
-
-  return "127.0.0.1"; // fallback
-}
-
-server.listen(PORT, () => {
-  console.log("Server running on http://" + getLocalIP() + ":" + PORT);
-});
+server.listen(PORT, () => console.log('Running on', PORT));
