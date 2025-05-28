@@ -35,7 +35,11 @@ io.on('connection', socket => {
 
   socket.on('play', ({ suit, rank }, stackIdx) => {
     const ok = game.play(socket.id, { suit, rank }, stackIdx);
-    if (!ok) { socket.emit('message', 'Invalid move'); return; }
+    if (!ok) {
+      const reason = game.getLastError() || 'Invalid move';
+      socket.emit('message', reason);
+      return;
+    }
     io.emit('stacks', game.getStacks());
     socket.emit('hand', game.hands[socket.id]);
     io.emit('currentTurn', game.getCurrentTurn());
@@ -53,7 +57,11 @@ io.on('connection', socket => {
 
   socket.on('playRoyal', ({ suit, rank }, royalIdx) => {
     const ok = game.playRoyal(socket.id, { suit, rank }, royalIdx);
-    if (!ok) { socket.emit('message', 'Invalid move'); return; }
+    if (!ok) {
+      const reason = game.getLastError() || 'Invalid move';
+      socket.emit('message', reason);
+      return;
+    }
     io.emit('royals', game.royals);
     socket.emit('hand', game.hands[socket.id]);
     io.emit('currentTurn', game.getCurrentTurn());

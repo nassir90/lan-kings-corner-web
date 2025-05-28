@@ -8,6 +8,7 @@ const deckCountEl = document.getElementById('deckCount');
 const msgEl = document.getElementById('message');
 let clientStacks = [];
 let myId = null, currentTurn = null;
+let hasDrawn = false;
 const EMOJI = {hearts: '♥️', diamonds: '♦️', clubs: '♣️', spades: '♠️'};
 
 function renderHand(cards){
@@ -86,7 +87,13 @@ function setupDrops(){
   });
 }
 
-drawBtn.onclick = _ => socket.emit('draw');
+drawBtn.onclick = _ => {
+  if (!hasDrawn) {
+    socket.emit('draw');
+    hasDrawn = true;
+    drawBtn.disabled = true;
+  }
+};
 endTurnBtn.onclick = _ => socket.emit('endTurn');
 
 socket.on('hand', cards => { renderHand(cards); setupDrops(); });
@@ -96,7 +103,12 @@ socket.on('deckCount', c=>deckCountEl.textContent=`Deck: ${c}`);
 socket.on('message', m=>msgEl.textContent=m);
 socket.on('currentTurn', id => {
   currentTurn = id;
-  drawBtn.disabled = myId !== id;
+  if (myId === id) {
+    hasDrawn = false;
+    drawBtn.disabled = false;
+  } else {
+    drawBtn.disabled = true;
+  }
   endTurnBtn.disabled = myId !== id;
   msgEl.textContent = myId===id ? 'Your turn' : 'Waiting...';
 });

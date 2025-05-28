@@ -25,14 +25,23 @@
   text-align: center;
   font-size: 12px;
 }
-#draw {
-  background: #007bff;
-  color: #fff;
-  padding: 8px 16px;
+button#draw,
+button#endTurn {
+  background-color: #1e90ff;
+  color: white;
   border: none;
+  padding: 0.5em 1em;
+  margin: 0.5em;
   border-radius: 4px;
-  margin: 10px 0;
   cursor: pointer;
+  font-size: 1em;
+}
+
+button#draw:disabled,
+button#endTurn:disabled {
+  background-color: #ccc;
+  color: #666;
+  cursor: not-allowed;
 }
 #draw:hover {
   background: #0056b3;

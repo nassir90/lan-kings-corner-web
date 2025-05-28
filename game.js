@@ -2,6 +2,7 @@
 class Game {
   constructor() {
     this.reset();
+    this.lastError = '';
   }
   reset() {
     // deck & piles
@@ -13,6 +14,7 @@ class Game {
     this.players = [];
     this.hands = {};
     this.currentTurn = null;
+    this.lastError = '';
   }
   createDeck() {
     const suits = ['hearts','diamonds','clubs','spades'];
@@ -51,35 +53,41 @@ class Game {
     return card;
   }
   play(id, card, stackIdx) {
+    this.lastError = '';
     // check turn
-    if (id !== this.currentTurn) return false;
-    if (!this.hands[id]) return false;
+    if (id !== this.currentTurn) { this.lastError = 'Not your turn'; return false; }
+    if (!this.hands[id]) { this.lastError = 'Player not found'; return false; }
     const hand = this.hands[id];
     const i = hand.findIndex(c => c.suit === card.suit && c.rank === card.rank);
-    if (i < 0) return false;
+    if (i < 0) { this.lastError = 'Card not in hand'; return false; }
     const stack = this.stacks[stackIdx];
     const top = stack[stack.length - 1];
-    if (!top || (top.color !== card.color && top.rank > card.rank)) {
-      stack.push(hand.splice(i, 1)[0]);
-      return true;
+    if (top && !(top.color !== card.color && top.rank > card.rank)) {
+      this.lastError = 'Cannot place card on stack';
+      return false;
     }
-    return false;
+    stack.push(hand.splice(i, 1)[0]);
+    this.lastError = '';
+    return true;
   }
   playRoyal(id, card, royalIdx) {
+    this.lastError = '';
     // check turn
-    if (id !== this.currentTurn) return false;
-    if (!this.hands[id]) return false;
+    if (id !== this.currentTurn) { this.lastError = 'Not your turn'; return false; }
+    if (!this.hands[id]) { this.lastError = 'Player not found'; return false; }
     const hand = this.hands[id];
     const i = hand.findIndex(c => c.suit === card.suit && c.rank === card.rank);
-    if (i < 0) return false;
+    if (i < 0) { this.lastError = 'Card not in hand'; return false; }
     const pile = this.royals[royalIdx];
     const len = pile.length;
     if ((len === 0 && card.rank !== 13) ||
         (len === 1 && (card.rank !== 12 || card.color === pile[0].color)) ||
         (len === 2 && (card.rank !== 11 || card.color === pile[1].color))) {
+      this.lastError = 'Invalid royal play';
       return false;
     }
     pile.push(hand.splice(i, 1)[0]);
+    this.lastError = '';
     return true;
   }
   move(count, fromIdx, toIdx) {
@@ -98,5 +106,6 @@ class Game {
   }
   getCurrentTurn() { return this.currentTurn; }
   getStacks() { return this.stacks; }
+  getLastError() { return this.lastError; }
 }
 module.exports = Game;
