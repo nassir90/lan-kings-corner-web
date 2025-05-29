@@ -64,6 +64,7 @@ function setupDrops(){
   boardEl.querySelectorAll('.cell.stack').forEach(cell => {
     cell.addEventListener('dragover', e => e.preventDefault());
     cell.addEventListener('drop', e => {
+      event.stopImmediatePropagation();
       e.preventDefault();
       const move = e.dataTransfer.getData('move');
       const to = parseInt(cell.dataset.idx);

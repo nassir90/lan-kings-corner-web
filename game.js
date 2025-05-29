@@ -14,6 +14,7 @@ class Game {
     this.players = [];
     this.hands = {};
     this.currentTurn = null;
+    this.playerDrawn = false;
     this.lastError = '';
   }
   createDeck() {
@@ -47,21 +48,28 @@ class Game {
   }
   draw(id) {
     // only current player can draw
-    if (id !== this.currentTurn) return false;
+    if (id !== this.currentTurn) { this.lastError = 'Not your turn'; return false; }
+    if (this.playerDrawn) { this.lastError = 'You can only draw once'; return false; }
     const card = this.deck.shift();
-    if (card) this.hands[id].push(card);
-    return card;
+    if (card) {
+      this.hands[id].push(card);
+      this.playerDrawn = true;
+      return card;
+    }
   }
   play(id, card, stackIdx) {
+    console.log("TRYING TO PLAY CARD!!!", card);
     this.lastError = '';
     // check turn
     if (id !== this.currentTurn) { this.lastError = 'Not your turn'; return false; }
     if (!this.hands[id]) { this.lastError = 'Player not found'; return false; }
     const hand = this.hands[id];
     const i = hand.findIndex(c => c.suit === card.suit && c.rank === card.rank);
+    if (card.rank > 10) { this.lastError = 'Cant use a royal here'; return false; }
     if (i < 0) { this.lastError = 'Card not in hand'; return false; }
     const stack = this.stacks[stackIdx];
     const top = stack[stack.length - 1];
+    console.log("top is", top);
     if (top && !(top.color !== card.color && top.rank > card.rank)) {
       this.lastError = 'Cannot place card on stack';
       return false;
@@ -97,12 +105,22 @@ class Game {
     const from = this.stacks[fromIdx];
     const to = this.stacks[toIdx];
     const tail = from.splice(from.length - count, count);
+    const fromBottom = tail[0];
+    const toTop = to[to.length - 1];
+    if (toTop && !(toTop.color !== fromBottom.color && toTop.rank > fromBottom.rank)) {
+      this.lastError = 'Cannot place card on stack';
+      for (let t of tail) {
+        from.push(t);
+      }
+      return false;
+    }
     to.push(...tail);
     return true;
   }
   switchTurn() {
     const [a, b] = this.players;
     this.currentTurn = this.currentTurn === a ? b : a;
+    this.playerDrawn = false;
   }
   getCurrentTurn() { return this.currentTurn; }
   getStacks() { return this.stacks; }

@@ -27,7 +27,7 @@ io.on('connection', socket => {
 
   socket.on('draw', () => {
     const ok = game.draw(socket.id);
-    if (!ok) { socket.emit('message', 'Not your turn'); return; }
+    if (!ok) { socket.emit('message', game.getLastError()); return; }
     socket.emit('hand', game.hands[socket.id]);
     io.emit('deckCount', game.deck.length);
     io.emit('currentTurn', game.getCurrentTurn());
@@ -36,7 +36,7 @@ io.on('connection', socket => {
   socket.on('play', ({ suit, rank }, stackIdx) => {
     const ok = game.play(socket.id, { suit, rank }, stackIdx);
     if (!ok) {
-      const reason = game.getLastError() || 'Invalid move';
+      const reason = game.getLastError();
       socket.emit('message', reason);
       return;
     }
@@ -47,9 +47,13 @@ io.on('connection', socket => {
 
   socket.on('move', ({ count, from, to }) => {
     if (count > 0 && game.stacks[from].length >= count) {
-      game.move(count, from, to);
-      io.emit('stacks', game.getStacks());
-      io.emit('currentTurn', game.getCurrentTurn());
+      const ok = game.move(count, from, to);
+      if (ok) {
+        io.emit('stacks', game.getStacks());
+        io.emit('currentTurn', game.getCurrentTurn());
+      } else {
+        socket.emit('message', game.getLastError());
+      }
     } else {
       socket.emit('message', 'Invalid move');
     }
